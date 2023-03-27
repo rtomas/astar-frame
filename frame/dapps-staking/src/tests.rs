@@ -1783,6 +1783,198 @@ fn claim_only_payout_is_ok() {
 }
 
 #[test]
+fn claim_only_delegate_once_payout_is_ok() {
+    ExternalityBuilder::build().execute_with(|| {
+        initialize_first_block();
+
+        let developer = 1;
+        let staker = 2;
+        let delegate_account = 3;
+        let contract_id = MockSmartContract::Evm(H160::repeat_byte(0x01));
+
+        // stake some tokens
+        let start_era = DappsStaking::current_era();
+        assert_register(developer, &contract_id);
+        let stake_value = 100;
+        assert_bond_and_stake(staker, &contract_id, stake_value);
+
+        // disable reward restaking
+        advance_to_era(start_era + 1);
+
+        // Set delegated account
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(staker.clone()),
+            delegate_account,
+            contract_id
+        ));
+
+        let init_balance = Balances::free_balance(delegate_account);
+
+        // ensure it's claimed correctly
+        let reward_total = assert_claim_staker(staker, &contract_id);
+
+        // Reward go ok for the delegate account
+        assert_eq!(
+            Balances::free_balance(delegate_account),
+            reward_total + init_balance
+        );
+    })
+}
+
+#[test]
+fn claim_only_delegate_twice_payout_is_ok() {
+    ExternalityBuilder::build().execute_with(|| {
+        initialize_first_block();
+
+        let developer = 1;
+        let staker = 2;
+        let delegate_account = 3;
+        let delegate_account_second = 4;
+        let contract_id = MockSmartContract::Evm(H160::repeat_byte(0x01));
+
+        // stake some tokens
+        let start_era = DappsStaking::current_era();
+        assert_register(developer, &contract_id);
+        let stake_value = 100;
+        assert_bond_and_stake(staker, &contract_id, stake_value);
+
+        // disable reward restaking
+        advance_to_era(start_era + 1);
+
+        // Set delegated account
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(staker.clone()),
+            delegate_account,
+            contract_id
+        ));
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(delegate_account.clone()),
+            delegate_account_second,
+            contract_id
+        ));
+
+        let init_balance = Balances::free_balance(delegate_account_second);
+
+        // ensure it's claimed correctly
+        let reward_total = assert_claim_staker(staker, &contract_id);
+
+        // Reward go ok for the delegate account
+        assert_eq!(
+            Balances::free_balance(delegate_account_second),
+            reward_total + init_balance
+        );
+    })
+}
+
+#[test]
+fn claim_only_delegate_third_payout_is_ok() {
+    ExternalityBuilder::build().execute_with(|| {
+        initialize_first_block();
+
+        let developer = 1;
+        let staker = 2;
+        let delegate_account = 3;
+        let delegate_account_second = 4;
+        let delegate_account_third = 5;
+        let contract_id = MockSmartContract::Evm(H160::repeat_byte(0x01));
+
+        // stake some tokens
+        let start_era = DappsStaking::current_era();
+        assert_register(developer, &contract_id);
+        let stake_value = 100;
+        assert_bond_and_stake(staker, &contract_id, stake_value);
+
+        // disable reward restaking
+        advance_to_era(start_era + 1);
+
+        // Set delegated account
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(staker.clone()),
+            delegate_account,
+            contract_id
+        ));
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(delegate_account.clone()),
+            delegate_account_second,
+            contract_id
+        ));
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(delegate_account_second.clone()),
+            delegate_account_third,
+            contract_id
+        ));
+
+        let init_balance = Balances::free_balance(delegate_account_third);
+
+        // ensure it's claimed correctly
+        let reward_total = assert_claim_staker(staker, &contract_id);
+
+        // Reward go ok for the delegate account
+        assert_eq!(
+            Balances::free_balance(delegate_account_third),
+            reward_total + init_balance
+        );
+    })
+}
+
+#[test]
+fn claim_only_delegate_third_max_payout_is_ok() {
+    ExternalityBuilder::build().execute_with(|| {
+        initialize_first_block();
+
+        let developer = 1;
+        let staker = 2;
+        let delegate_account = 3;
+        let delegate_account_second = 4;
+        let delegate_account_third = 5;
+        let delegate_account_four = 6;
+        let contract_id = MockSmartContract::Evm(H160::repeat_byte(0x01));
+
+        // stake some tokens
+        let start_era = DappsStaking::current_era();
+        assert_register(developer, &contract_id);
+        let stake_value = 100;
+        assert_bond_and_stake(staker, &contract_id, stake_value);
+
+        // disable reward restaking
+        advance_to_era(start_era + 1);
+
+        // Set delegated account
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(staker.clone()),
+            delegate_account,
+            contract_id
+        ));
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(delegate_account.clone()),
+            delegate_account_second,
+            contract_id
+        ));
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(delegate_account_second.clone()),
+            delegate_account_third,
+            contract_id
+        ));
+        assert_ok!(DappsStaking::set_delegate_rewards(
+            Origin::signed(delegate_account_third.clone()),
+            delegate_account_four,
+            contract_id
+        ));
+
+        let init_balance = Balances::free_balance(delegate_account_third);
+
+        // ensure it's claimed correctly
+        let reward_total = assert_claim_staker(staker, &contract_id);
+
+        // Reward go ok for the delegate account
+        assert_eq!(
+            Balances::free_balance(delegate_account_third),
+            reward_total + init_balance
+        );
+    })
+}
+
+#[test]
 fn claim_with_zero_staked_is_ok() {
     ExternalityBuilder::build().execute_with(|| {
         initialize_first_block();

@@ -122,6 +122,18 @@ pub mod pallet {
     #[pallet::getter(fn block_reward_accumulator)]
     pub type BlockRewardAccumulator<T> = StorageValue<_, RewardInfo<BalanceOf<T>>, ValueQuery>;
 
+    /// List of delegates account to account per contract
+    #[pallet::storage]
+    #[pallet::getter(fn delegate_reward_accounts)]
+    pub type DelegateRewardAccounts<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Blake2_128Concat,
+        T::SmartContract,
+        T::AccountId,
+    >;
+
     #[pallet::type_value]
     pub fn ForceEraOnEmpty() -> Forcing {
         Forcing::NotForcing
@@ -233,6 +245,9 @@ pub mod pallet {
             BalanceOf<T>,
             T::SmartContract,
         ),
+
+        DelegateRewardAccountSet(T::AccountId, T::SmartContract, T::AccountId),
+        DelegateRewardsAccountUnset(T::AccountId, T::SmartContract),
     }
 
     #[pallet::error]
@@ -291,6 +306,10 @@ pub mod pallet {
         NotActiveStaker,
         /// Transfering nomination to the same contract
         NominationTransferToSameContract,
+        //Cant delegale reward to self
+        DelegateRewardAccountIsStaker,
+        // Delegate reward account is not set
+        DelegateRewardsAccountIsNotSet,
     }
 
     #[pallet::hooks]
@@ -797,7 +816,13 @@ pub mod pallet {
                 ));
             }
 
-            T::Currency::resolve_creating(&staker, reward_imbalance);
+            // Check if the staker has a reward destination account or not
+            // let mut reward_received_account = staker.clone();
+
+            let reward_received_account =
+                Self::check_next_delegate_reward(&staker, &contract_id, 0);
+            T::Currency::resolve_creating(&reward_received_account, reward_imbalance);
+
             Self::update_staker_info(&staker, &contract_id, staker_info);
             Self::deposit_event(Event::<T>::Reward(staker, contract_id, era, staker_reward));
 
@@ -975,6 +1000,64 @@ pub mod pallet {
             ensure_root(origin)?;
 
             ContractEraStake::<T>::insert(contract, era, contract_stake_info);
+
+            Ok(().into())
+        }
+
+        // Set Delegate Rewards to an account
+        #[pallet::weight(T::DbWeight::get().writes(1))]
+        pub fn set_delegate_rewards(
+            origin: OriginFor<T>,
+            delegate_account: T::AccountId,
+            contract_id: T::SmartContract,
+        ) -> DispatchResultWithPostInfo {
+            Self::ensure_pallet_enabled()?;
+            let staker = ensure_signed(origin)?;
+
+            // check origin is different from delegate account
+            ensure!(
+                staker != delegate_account,
+                Error::<T>::DelegateRewardAccountIsStaker
+            );
+
+            if !DelegateRewardAccounts::<T>::contains_key(&staker, &contract_id) {
+                DelegateRewardAccounts::<T>::insert(
+                    &staker,
+                    &contract_id,
+                    delegate_account.clone(),
+                );
+            } else {
+                DelegateRewardAccounts::<T>::mutate(&staker, &contract_id, |delegate_account| {
+                    *delegate_account = delegate_account.clone();
+                });
+            }
+
+            Self::deposit_event(Event::<T>::DelegateRewardAccountSet(
+                staker,
+                contract_id,
+                delegate_account,
+            ));
+
+            Ok(().into())
+        }
+
+        // Unset Delegate Rewards from and account for a specific contract
+        #[pallet::weight(T::DbWeight::get().writes(1))]
+        pub fn unset_delegate_rewards(
+            origin: OriginFor<T>,
+            contract_id: T::SmartContract,
+        ) -> DispatchResultWithPostInfo {
+            Self::ensure_pallet_enabled()?;
+            let staker = ensure_signed(origin)?;
+
+            if !DelegateRewardAccounts::<T>::contains_key(&staker, &contract_id) {
+                // Raise error NOT deletage account is set
+                return Err(Error::<T>::DelegateRewardsAccountIsNotSet.into());
+            }
+
+            DelegateRewardAccounts::<T>::remove(&staker, &contract_id);
+
+            Self::deposit_event(Event::<T>::DelegateRewardsAccountUnset(staker, contract_id));
 
             Ok(().into())
         }
@@ -1257,6 +1340,25 @@ pub mod pallet {
             } else {
                 // Should never happen since era info for current era must always exist
                 Zero::zero()
+            }
+        }
+
+        fn check_next_delegate_reward(
+            staker: &T::AccountId,
+            contract_id: &T::SmartContract,
+            iteration: u8,
+        ) -> T::AccountId {
+            // If there is a delegation with call recursive
+            if DelegateRewardAccounts::<T>::contains_key(&staker, contract_id) && iteration < 3 {
+                let reward_received_account =
+                    DelegateRewardAccounts::<T>::get(&staker, contract_id).unwrap();
+                return Self::check_next_delegate_reward(
+                    &reward_received_account,
+                    contract_id,
+                    iteration + 1,
+                );
+            } else {
+                return staker.clone();
             }
         }
     }

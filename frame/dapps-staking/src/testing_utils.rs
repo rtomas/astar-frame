@@ -484,7 +484,10 @@ pub(crate) fn assert_nomination_transfer(
 }
 
 /// Used to perform claim for stakers with success assertion
-pub(crate) fn assert_claim_staker(claimer: AccountId, contract_id: &MockSmartContract<AccountId>) {
+pub(crate) fn assert_claim_staker(
+    claimer: AccountId,
+    contract_id: &MockSmartContract<AccountId>,
+) -> u128 {
     let (claim_era, _) = DappsStaking::staker_info(&claimer, contract_id).claim();
     let current_era = DappsStaking::current_era();
 
@@ -573,6 +576,8 @@ pub(crate) fn assert_claim_staker(claimer: AccountId, contract_id: &MockSmartCon
         init_state_claim_era.contract_info,
         final_state_claim_era.contract_info
     );
+
+    calculated_reward
 }
 
 // assert staked and locked states depending on should_restake_reward
