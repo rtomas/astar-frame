@@ -531,11 +531,6 @@ pub(crate) fn get_total_reward(
         Perbill::from_rational(staked, init_state_claim_era.contract_info.total)
             * stakers_joint_reward;
 
-    assert_ok!(DappsStaking::claim_staker(
-        Origin::signed(claimer),
-        contract_id.clone(),
-    ));
-
     calculated_reward
 }
 

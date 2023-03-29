@@ -1807,6 +1807,8 @@ fn claim_only_delegate_once_payout_is_ok() {
 
         let reward_total = get_total_reward(staker, &contract_id);
 
+        assert_claim_staker(staker, &contract_id);
+
         // Reward go ok for the delegate account
         assert_eq!(
             Balances::free_balance(delegate_account),
@@ -1879,6 +1881,8 @@ fn claim_only_delegate_twice_payout_is_ok() {
 
         let reward_total = get_total_reward(staker, &contract_id);
 
+        assert_claim_staker(staker, &contract_id);
+
         // Reward go ok for the delegate account
         assert_eq!(
             Balances::free_balance(delegate_account_second),
@@ -1927,6 +1931,8 @@ fn claim_only_delegate_third_payout_is_ok() {
         let init_balance = Balances::free_balance(delegate_account_third);
 
         let reward_total = get_total_reward(staker, &contract_id);
+
+        assert_claim_staker(staker, &contract_id);
 
         // Reward go ok for the delegate account
         assert_eq!(
@@ -1982,6 +1988,8 @@ fn claim_only_delegate_third_max_payout_is_ok() {
         let init_balance = Balances::free_balance(delegate_account_third);
 
         let reward_total = get_total_reward(staker, &contract_id);
+
+        assert_claim_staker(staker, &contract_id);
 
         // Reward go ok for the delegate account
         assert_eq!(

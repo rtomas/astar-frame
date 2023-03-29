@@ -1031,12 +1031,7 @@ pub mod pallet {
                 Error::<T>::DelegateRewardAlreadyExist
             );
 
-            // check if delegate account is active staker
-            let ledger = Ledger::<T>::get(&delegate_account);
-            ensure!(
-                ledger.is_empty() && ledger.reward_destination == RewardDestination::StakeBalance,
-                Error::<T>::DelegateIsNotActiveStaker
-            );
+            // TODO: check if ledget is equal to a new enum RewardDestination
 
             // insert the delegate account if not already set
             DelegateRewardAccounts::<T>::insert(&staker, &contract_id, delegate_account.clone());
