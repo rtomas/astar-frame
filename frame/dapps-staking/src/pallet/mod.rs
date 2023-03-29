@@ -245,8 +245,9 @@ pub mod pallet {
             BalanceOf<T>,
             T::SmartContract,
         ),
-
+        // Set a Delegate Reward account per contract
         DelegateRewardAccountSet(T::AccountId, T::SmartContract, T::AccountId),
+        // Unset a Delegate Reward account per contract
         DelegateRewardsAccountUnset(T::AccountId, T::SmartContract),
     }
 
@@ -310,6 +311,8 @@ pub mod pallet {
         DelegateRewardAccountIsStaker,
         // Delegate reward account is not set
         DelegateRewardsAccountIsNotSet,
+        // Delegate reward account is already set
+        DelegateRewardAlreadyExist,
     }
 
     #[pallet::hooks]
@@ -818,7 +821,7 @@ pub mod pallet {
 
             // Check if the staker has a reward destination account or not
             // let mut reward_received_account = staker.clone();
-
+            // What if reward destination is set to StakeBalance?
             let reward_received_account =
                 Self::check_next_delegate_reward(&staker, &contract_id, 0);
             T::Currency::resolve_creating(&reward_received_account, reward_imbalance);
@@ -1005,7 +1008,7 @@ pub mod pallet {
         }
 
         // Set Delegate Rewards to an account
-        #[pallet::weight(T::DbWeight::get().writes(1))]
+        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn set_delegate_rewards(
             origin: OriginFor<T>,
             delegate_account: T::AccountId,
@@ -1020,17 +1023,14 @@ pub mod pallet {
                 Error::<T>::DelegateRewardAccountIsStaker
             );
 
-            if !DelegateRewardAccounts::<T>::contains_key(&staker, &contract_id) {
-                DelegateRewardAccounts::<T>::insert(
-                    &staker,
-                    &contract_id,
-                    delegate_account.clone(),
-                );
-            } else {
-                DelegateRewardAccounts::<T>::mutate(&staker, &contract_id, |delegate_account| {
-                    *delegate_account = delegate_account.clone();
-                });
-            }
+            // check if delegate account is already set
+            ensure!(
+                !DelegateRewardAccounts::<T>::contains_key(&staker, &contract_id),
+                Error::<T>::DelegateRewardAlreadyExist
+            );
+
+            // insert the delegate account if not already set
+            DelegateRewardAccounts::<T>::insert(&staker, &contract_id, delegate_account.clone());
 
             Self::deposit_event(Event::<T>::DelegateRewardAccountSet(
                 staker,
@@ -1042,7 +1042,7 @@ pub mod pallet {
         }
 
         // Unset Delegate Rewards from and account for a specific contract
-        #[pallet::weight(T::DbWeight::get().writes(1))]
+        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn unset_delegate_rewards(
             origin: OriginFor<T>,
             contract_id: T::SmartContract,

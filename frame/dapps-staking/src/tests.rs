@@ -1798,20 +1798,14 @@ fn claim_only_delegate_once_payout_is_ok() {
         let stake_value = 100;
         assert_bond_and_stake(staker, &contract_id, stake_value);
 
-        // disable reward restaking
         advance_to_era(start_era + 1);
 
         // Set delegated account
-        assert_ok!(DappsStaking::set_delegate_rewards(
-            Origin::signed(staker.clone()),
-            delegate_account,
-            contract_id
-        ));
+        assert_set_delegate_rewards(staker, delegate_account, &contract_id);
 
         let init_balance = Balances::free_balance(delegate_account);
 
-        // ensure it's claimed correctly
-        let reward_total = assert_claim_staker(staker, &contract_id);
+        let reward_total = get_total_reward(staker, &contract_id);
 
         // Reward go ok for the delegate account
         assert_eq!(
@@ -1838,7 +1832,6 @@ fn claim_only_delegate_twice_payout_is_ok() {
         let stake_value = 100;
         assert_bond_and_stake(staker, &contract_id, stake_value);
 
-        // disable reward restaking
         advance_to_era(start_era + 1);
 
         // Set delegated account
@@ -1855,8 +1848,7 @@ fn claim_only_delegate_twice_payout_is_ok() {
 
         let init_balance = Balances::free_balance(delegate_account_second);
 
-        // ensure it's claimed correctly
-        let reward_total = assert_claim_staker(staker, &contract_id);
+        let reward_total = get_total_reward(staker, &contract_id);
 
         // Reward go ok for the delegate account
         assert_eq!(
@@ -1884,8 +1876,10 @@ fn claim_only_delegate_third_payout_is_ok() {
         let stake_value = 100;
         assert_bond_and_stake(staker, &contract_id, stake_value);
 
-        // disable reward restaking
         advance_to_era(start_era + 1);
+
+        // ensure reward_destination is set to StakeBalance
+        assert_set_reward_destination(delegate_account_third, RewardDestination::FreeBalance);
 
         // Set delegated account
         assert_ok!(DappsStaking::set_delegate_rewards(
@@ -1906,8 +1900,7 @@ fn claim_only_delegate_third_payout_is_ok() {
 
         let init_balance = Balances::free_balance(delegate_account_third);
 
-        // ensure it's claimed correctly
-        let reward_total = assert_claim_staker(staker, &contract_id);
+        let reward_total = get_total_reward(staker, &contract_id);
 
         // Reward go ok for the delegate account
         assert_eq!(
@@ -1936,7 +1929,6 @@ fn claim_only_delegate_third_max_payout_is_ok() {
         let stake_value = 100;
         assert_bond_and_stake(staker, &contract_id, stake_value);
 
-        // disable reward restaking
         advance_to_era(start_era + 1);
 
         // Set delegated account
@@ -1963,8 +1955,7 @@ fn claim_only_delegate_third_max_payout_is_ok() {
 
         let init_balance = Balances::free_balance(delegate_account_third);
 
-        // ensure it's claimed correctly
-        let reward_total = assert_claim_staker(staker, &contract_id);
+        let reward_total = get_total_reward(staker, &contract_id);
 
         // Reward go ok for the delegate account
         assert_eq!(

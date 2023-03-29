@@ -259,6 +259,25 @@ pub(crate) fn assert_bond_and_stake(
     );
 }
 
+/// Performs 'set_delegate_rewards' with success, storage assertions and returns the expected event.
+pub(crate) fn assert_set_delegate_rewards(
+    staker: AccountId,
+    delegate_account: AccountId,
+    contract_id: &MockSmartContract<AccountId>,
+) {
+    assert_ok!(DappsStaking::set_delegate_rewards(
+        Origin::signed(staker.clone()),
+        delegate_account.clone(),
+        *contract_id
+    ));
+
+    System::assert_last_event(mock::Event::DappsStaking(Event::DelegateRewardAccountSet(
+        staker,
+        contract_id.clone(),
+        delegate_account,
+    )));
+}
+
 /// Used to perform start_unbonding with success and storage assertions.
 pub(crate) fn assert_unbond_and_unstake(
     staker: AccountId,
@@ -483,11 +502,45 @@ pub(crate) fn assert_nomination_transfer(
     }
 }
 
-/// Used to perform claim for stakers with success assertion
-pub(crate) fn assert_claim_staker(
+pub(crate) fn get_total_reward(
     claimer: AccountId,
     contract_id: &MockSmartContract<AccountId>,
 ) -> u128 {
+    let (claim_era, _) = DappsStaking::staker_info(&claimer, contract_id).claim();
+
+    //clean up possible leftover events
+    System::reset_events();
+
+    let init_state_claim_era = MemorySnapshot::all(claim_era, contract_id, claimer);
+
+    // Calculate contract portion of the reward
+    let (_, stakers_joint_reward) = DappsStaking::dev_stakers_split(
+        &init_state_claim_era.contract_info,
+        &init_state_claim_era.era_info,
+    );
+
+    let (claim_era, staked) = init_state_claim_era.staker_info.clone().claim();
+    assert!(claim_era > 0); // Sanity check - if this fails, method is being used incorrectly
+
+    // Cannot claim rewards post unregister era, this indicates a bug!
+    if let DAppState::Unregistered(unregistered_era) = init_state_claim_era.dapp_info.state {
+        assert!(unregistered_era > claim_era);
+    }
+
+    let calculated_reward =
+        Perbill::from_rational(staked, init_state_claim_era.contract_info.total)
+            * stakers_joint_reward;
+
+    assert_ok!(DappsStaking::claim_staker(
+        Origin::signed(claimer),
+        contract_id.clone(),
+    ));
+
+    calculated_reward
+}
+
+/// Used to perform claim for stakers with success assertion
+pub(crate) fn assert_claim_staker(claimer: AccountId, contract_id: &MockSmartContract<AccountId>) {
     let (claim_era, _) = DappsStaking::staker_info(&claimer, contract_id).claim();
     let current_era = DappsStaking::current_era();
 
@@ -576,8 +629,6 @@ pub(crate) fn assert_claim_staker(
         init_state_claim_era.contract_info,
         final_state_claim_era.contract_info
     );
-
-    calculated_reward
 }
 
 // assert staked and locked states depending on should_restake_reward
