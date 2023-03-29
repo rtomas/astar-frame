@@ -1816,6 +1816,35 @@ fn claim_only_delegate_once_payout_is_ok() {
 }
 
 #[test]
+fn claim_only_delegate_to_not_staking_account() {
+    ExternalityBuilder::build().execute_with(|| {
+        initialize_first_block();
+
+        let developer = 1;
+        let staker = 2;
+        let delegate_account = 3;
+        let contract_id = MockSmartContract::Evm(H160::repeat_byte(0x01));
+
+        // stake some tokens
+        let start_era = DappsStaking::current_era();
+        assert_register(developer, &contract_id);
+        let stake_value = 100;
+        assert_bond_and_stake(staker, &contract_id, stake_value);
+
+        advance_to_era(start_era + 1);
+
+        // Set delegated account error because the account is not an active staker
+        assert_noop!(
+            DappsStaking::set_reward_destination(
+                Origin::signed(delegate_account.clone()),
+                RewardDestination::StakeBalance
+            ),
+            Error::<TestRuntime>::NotActiveStaker
+        );
+    })
+}
+
+#[test]
 fn claim_only_delegate_twice_payout_is_ok() {
     ExternalityBuilder::build().execute_with(|| {
         initialize_first_block();
@@ -1877,9 +1906,6 @@ fn claim_only_delegate_third_payout_is_ok() {
         assert_bond_and_stake(staker, &contract_id, stake_value);
 
         advance_to_era(start_era + 1);
-
-        // ensure reward_destination is set to StakeBalance
-        assert_set_reward_destination(delegate_account_third, RewardDestination::FreeBalance);
 
         // Set delegated account
         assert_ok!(DappsStaking::set_delegate_rewards(

@@ -313,6 +313,8 @@ pub mod pallet {
         DelegateRewardsAccountIsNotSet,
         // Delegate reward account is already set
         DelegateRewardAlreadyExist,
+        // Delegate reward account is not active staker
+        DelegateIsNotActiveStaker,
     }
 
     #[pallet::hooks]
@@ -1008,7 +1010,7 @@ pub mod pallet {
         }
 
         // Set Delegate Rewards to an account
-        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+        #[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
         pub fn set_delegate_rewards(
             origin: OriginFor<T>,
             delegate_account: T::AccountId,
@@ -1027,6 +1029,13 @@ pub mod pallet {
             ensure!(
                 !DelegateRewardAccounts::<T>::contains_key(&staker, &contract_id),
                 Error::<T>::DelegateRewardAlreadyExist
+            );
+
+            // check if delegate account is active staker
+            let ledger = Ledger::<T>::get(&delegate_account);
+            ensure!(
+                ledger.is_empty() && ledger.reward_destination == RewardDestination::StakeBalance,
+                Error::<T>::DelegateIsNotActiveStaker
             );
 
             // insert the delegate account if not already set
