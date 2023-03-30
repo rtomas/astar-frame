@@ -315,6 +315,8 @@ pub mod pallet {
         DelegateRewardAlreadyExist,
         // Delegate reward account is not active staker
         DelegateIsNotActiveStaker,
+        // Delegate reward account is not a Delegate
+        DelegateRewardAccountMustBeDelegate,
     }
 
     #[pallet::hooks]
@@ -821,9 +823,7 @@ pub mod pallet {
                 ));
             }
 
-            // Check if the staker has a reward destination account or not
-            // let mut reward_received_account = staker.clone();
-            // What if reward destination is set to StakeBalance?
+            // Transfer reward to the account
             let reward_received_account =
                 Self::check_next_delegate_reward(&staker, &contract_id, 0);
             T::Currency::resolve_creating(&reward_received_account, reward_imbalance);
@@ -980,7 +980,9 @@ pub mod pallet {
             let staker = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&staker);
 
-            ensure!(!ledger.is_empty(), Error::<T>::NotActiveStaker);
+            if reward_destination != RewardDestination::Delegate {
+                ensure!(!ledger.is_empty(), Error::<T>::NotActiveStaker);
+            }
 
             // this is done directly instead of using update_ledger helper
             // because there's no need to interact with the Currency locks
@@ -1031,7 +1033,12 @@ pub mod pallet {
                 Error::<T>::DelegateRewardAlreadyExist
             );
 
-            // TODO: check if ledget is equal to a new enum RewardDestination
+            // check if ledget is equal to RewardDestination::Delegate
+            let ledger = Ledger::<T>::get(&delegate_account);
+            ensure!(
+                ledger.reward_destination == RewardDestination::Delegate || !ledger.is_empty(),
+                Error::<T>::DelegateRewardAccountMustBeDelegate
+            );
 
             // insert the delegate account if not already set
             DelegateRewardAccounts::<T>::insert(&staker, &contract_id, delegate_account.clone());
